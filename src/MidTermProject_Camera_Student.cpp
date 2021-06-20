@@ -86,12 +86,22 @@ bool calculateKeypoints ( std::deque<DataFrame>& data_buffer,
         /* MATCH KEYPOINT DESCRIPTORS */
         vector<cv::DMatch> matches;
         Matcher matcher (matcher_type, selector_type, descriptor.featureType());
+        if ( (data_buffer.end() - 1)->keypoints.size() == 0 ||
+             (data_buffer.end() - 2)->keypoints.size() == 0) {
+            std::cerr << "Not enough kepoints detected, skipping." <<std::endl;
+            return false;
+        }
+        if ( (data_buffer.end() - 1)->descriptors.cols != (data_buffer.end() - 2)->descriptors.cols ) {
+            std::cerr << "Mismatch between descriptor sizes, skipping." << std::endl;
+            return false;
+        }
+
         try {
             matcher.matchDescriptors((data_buffer.end() - 2)->keypoints, (data_buffer.end() - 1)->keypoints,
                                  (data_buffer.end() - 2)->descriptors, (data_buffer.end() - 1)->descriptors,
                                  matches);
         } catch (...) {
-            std::cerr << matcher_type << " matching failed with " << selector_type << " selection and " << descriptor_type << " descriptors." << std::endl;
+            std::cerr << matcher_type << " matching failed with " << selector_type << " selection, " << detector_type << " keypoints and " << descriptor_type << " descriptors." << std::endl;
             return false;
         }
 
@@ -123,6 +133,7 @@ struct Summary {
     std::string keypoint_type;
     std::string descriptor_type;
     std::vector <std::vector<cv::KeyPoint>> keypoints;
+    std::vector <std::vector<cv::DMatch>> matched_keypoints;
     std::vector <double> keypoint_times;
     std::vector <double> descriptor_times;
 
@@ -134,6 +145,7 @@ std::ostream& operator<<(std::ostream& os, const Summary& summary) {
     double mean_keypoint_time = 0.0;
     double mean_descriptor_time = 0.0;
     int keypoint_average = 0;
+    int matched_keypoints_average = 0;
     if (summary.keypoint_times.size() != 0) {
         for (auto t : summary.keypoint_times) {
             mean_keypoint_time += t;
@@ -152,8 +164,15 @@ std::ostream& operator<<(std::ostream& os, const Summary& summary) {
         }
         keypoint_average /= summary.keypoints.size();
     }
-    os << summary.keypoint_type << ", " << summary.descriptor_type << ", " << keypoint_average << ", "  
-       << mean_keypoint_time << ", " << mean_descriptor_time << std::endl;
+    if (summary.matched_keypoints.size() != 0) {
+        for (const auto & k : summary.matched_keypoints) {
+            matched_keypoints_average += k.size();
+        }
+        matched_keypoints_average /= summary.matched_keypoints.size();
+    }
+
+    os << summary.keypoint_type << ", " << summary.descriptor_type << ", " << keypoint_average << ", " 
+       << matched_keypoints_average << ", " << mean_keypoint_time * 1000 << ", " << mean_descriptor_time * 1000 << std::endl;
     return os;
 }
 
@@ -195,6 +214,19 @@ int main(int argc, const char *argv[])
 
     for (auto detectorType : keypoint_types) {
         for (auto descriptorType : descriptor_types) {
+
+            if (descriptorType == "AKAZE" && detectorType != "AKAZE" ) {
+                //AKAZE features only work with AKAZE descriptors
+                continue;
+            }
+
+            if (descriptorType == "ORB" && detectorType == "SIFT") {
+                //This combination causes an out of memory error
+                continue;
+            }
+
+            dataBuffer.clear(); 
+
             /* MAIN LOOP OVER ALL IMAGES */
             Summary summary;
             summary.keypoint_type = detectorType;
@@ -226,6 +258,7 @@ int main(int argc, const char *argv[])
                 if (calculateKeypoints(dataBuffer, detectorType, descriptorType, matcherType, selectorType, bVis)) {
 
                     summary.keypoints.push_back ((dataBuffer.end()-1)->keypoints);
+                    summary.matched_keypoints.push_back((dataBuffer.end()-1)->kptMatches);
                     summary.keypoint_times.push_back ((dataBuffer.end()-1)->keypoint_run_time);
                     summary.descriptor_times.push_back ((dataBuffer.end()-1)->descriptor_run_time);
                 }
@@ -236,7 +269,7 @@ int main(int argc, const char *argv[])
         }
     }
 
-    std::cout << "keypoint type, detector_type, mean # keypoints, mean keypoint time (s), mean descriptor time (s)" << std::endl;
+    std::cout << "keypoint type, detector_type, mean # keypoints, mean # matched keypoints, mean keypoint time (ms), mean descriptor time (ms)" << std::endl;
     for (const auto &summary : summaries) {
         std::cout << summary;
     }
