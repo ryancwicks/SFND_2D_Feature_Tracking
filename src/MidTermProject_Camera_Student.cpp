@@ -39,7 +39,7 @@ bool calculateKeypoints ( std::deque<DataFrame>& data_buffer,
     }
     
     // only keep keypoints on the preceding vehicle
-    bool bFocusOnVehicle = true;
+    bool bFocusOnVehicle = false;
     cv::Rect vehicleRect(535, 180, 180, 150);
     if (bFocusOnVehicle)
     {
@@ -138,41 +138,58 @@ struct Summary {
     std::vector <double> descriptor_times;
 
     friend std::ostream& operator<<(std::ostream& os, const Summary& summary);
+
+    double mean_keypoint_time() const {
+        double mean_keypoint_time = 0.0;
+        if (keypoint_times.size() != 0) {
+            for (auto t : keypoint_times) {
+                mean_keypoint_time += t;
+            }
+            mean_keypoint_time /= keypoint_times.size();
+        }
+        return mean_keypoint_time;
+    }
+
+    double mean_descriptor_time() const {
+        double mean_descriptor_time = 0.0;
+        if (descriptor_times.size() != 0){
+            for (auto t : descriptor_times) {
+                mean_descriptor_time += t;
+            }
+            mean_descriptor_time /= descriptor_times.size();
+        }
+        return mean_descriptor_time;
+    }
+
+    int mean_keypoint_count() const {
+        int keypoint_average = 0;
+        if (keypoints.size() != 0) {
+            for (const auto & k : keypoints) {
+                keypoint_average += k.size();
+            }
+            keypoint_average /= keypoints.size();
+        }
+        return keypoint_average;
+    }
+
+    int mean_match_count() const {
+        int matched_keypoints_average = 0;
+        if (matched_keypoints.size() != 0) {
+            for (const auto & k : matched_keypoints) {
+                matched_keypoints_average += k.size();
+            }
+            matched_keypoints_average /= matched_keypoints.size();
+        }
+        return matched_keypoints_average;
+    }
 };
 
 std::ostream& operator<<(std::ostream& os, const Summary& summary) {
-    //keypoint type, detector_type, mean # keypoints, mean keypoint time (s), mean descriptor time (s)
-    double mean_keypoint_time = 0.0;
-    double mean_descriptor_time = 0.0;
-    int keypoint_average = 0;
-    int matched_keypoints_average = 0;
-    if (summary.keypoint_times.size() != 0) {
-        for (auto t : summary.keypoint_times) {
-            mean_keypoint_time += t;
-        }
-        mean_keypoint_time /= summary.keypoint_times.size();
-    }
-    if (summary.descriptor_times.size() != 0){
-        for (auto t : summary.descriptor_times) {
-            mean_descriptor_time += t;
-        }
-        mean_descriptor_time /= summary.descriptor_times.size();
-    }
-    if (summary.keypoints.size() != 0) {
-        for (const auto & k : summary.keypoints) {
-            keypoint_average += k.size();
-        }
-        keypoint_average /= summary.keypoints.size();
-    }
-    if (summary.matched_keypoints.size() != 0) {
-        for (const auto & k : summary.matched_keypoints) {
-            matched_keypoints_average += k.size();
-        }
-        matched_keypoints_average /= summary.matched_keypoints.size();
-    }
-
-    os << summary.keypoint_type << ", " << summary.descriptor_type << ", " << keypoint_average << ", " 
-       << matched_keypoints_average << ", " << mean_keypoint_time * 1000 << ", " << mean_descriptor_time * 1000 << std::endl;
+    //keypoint type, detector_type, mean # keypoints, mean keypoint time (ms), mean descriptor time (ms), total time (ms)
+    os << summary.keypoint_type << ", " << summary.descriptor_type << ", " << summary.mean_keypoint_count() << ", " 
+       << summary.mean_match_count() << ", " << summary.mean_keypoint_time() * 1000 << ", " << summary.mean_descriptor_time() * 1000 
+       << ", " << (summary.mean_keypoint_time() + summary.mean_descriptor_time() ) * 1000 
+       << ", " << (summary.mean_keypoint_time() + summary.mean_descriptor_time() ) * 1000 / summary.mean_match_count() << std::endl;
     return os;
 }
 
@@ -203,18 +220,16 @@ int main(int argc, const char *argv[])
     const std::vector<std::string> keypoint_types {"SHITOMASI", "HARRIS", "FAST", "BRISK", "ORB", "AKAZE", "SIFT"}; 
     const std::vector<std::string> descriptor_types {"BRISK", "BRIEF", "ORB", "FREAK", "AKAZE", "SIFT"};
 
-    //string detectorType = "SIFT"; //SHITOMASI, HARRIS, FAST, BRISK, ORB, AKAZE, SIFT
-    //string descriptorType = "SIFT"; // BRISK, BRIEF, ORB, FREAK, AKAZE, SIFT
-    //SIFT features and ORB detector runs out of memory.
-    //SIFT and AKAZE also fails. (AKAZE doesn't handle mixing keypoints and descriptors well.)
     string matcherType = "MAT_BF";        // MAT_BF, MAT_FLANN
     string selectorType = "SEL_NN";       // SEL_NN, SEL_KNN
 
     std::vector <Summary> summaries;
 
+    //auto detectorType = "SIFT";
+    //auto descriptorType = "BRISK";
+
     for (auto detectorType : keypoint_types) {
         for (auto descriptorType : descriptor_types) {
-
             if (descriptorType == "AKAZE" && detectorType != "AKAZE" ) {
                 //AKAZE features only work with AKAZE descriptors
                 continue;
@@ -269,9 +284,52 @@ int main(int argc, const char *argv[])
         }
     }
 
-    std::cout << "keypoint type, detector_type, mean # keypoints, mean # matched keypoints, mean keypoint time (ms), mean descriptor time (ms)" << std::endl;
+    //Task 7:
+    /*
+    for (const auto & summary : summaries) {
+        std::cout << summary.keypoint_type << " | " << summary.mean_keypoint_count() << std::endl;
+    }
+
+    for (const auto & summary : summaries) {
+        auto outfile = std::ofstream (summary.keypoint_type + "_keypoints.csv");
+        for (const auto & keypoints : summary.keypoints) {
+            for (const auto & keypoint : keypoints) {
+                outfile << keypoint.size << std::endl;
+            }
+        }
+        outfile.close();
+    } */
+
+    //Tasks 8 and 9
+    std::cout << "ALL DETECTORS" << std::endl;
+    std::cout << "keypoint type, detector_type, mean # keypoints, mean # matched keypoints, mean keypoint time (ms), mean descriptor time (ms), total time (ms)" << std::endl;
     for (const auto &summary : summaries) {
         std::cout << summary;
     }
+
+    std::cout << std::endl <<"TOP 3 # MATCHES" << std::endl;
+    std::sort (summaries.begin(), summaries.end(), [ ] (const Summary & i, const Summary & j) {
+        return i.mean_match_count() > j.mean_match_count();
+    });
+    for (auto i = 0; i < 3; ++i) {
+        std::cout << summaries[i];
+    }
+
+    std::cout << std::endl << "TOP 3 PERFORMANCE" << std::endl;
+    std::sort (summaries.begin(), summaries.end(), [ ] (const Summary & i, const Summary & j) {
+        return (i.mean_keypoint_time() + i.mean_descriptor_time()) < (j.mean_keypoint_time() + j.mean_descriptor_time());
+    });
+    for (auto i = 0; i < 3; ++i) {
+        std::cout << summaries[i];
+    }
+    
+    std::cout << std::endl << "TOP 3 Time/Keypoint" << std::endl;
+    std::sort (summaries.begin(), summaries.end(), [ ] (const Summary & i, const Summary & j) {
+        return (i.mean_keypoint_time() + i.mean_descriptor_time())/i.mean_match_count() < (j.mean_keypoint_time() + j.mean_descriptor_time())/j.mean_match_count();
+    });
+    for (auto i = 0; i < 3; ++i) {
+        std::cout << summaries[i];
+    }
+
     return 0;
 }

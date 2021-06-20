@@ -267,7 +267,7 @@ double Descriptor::describe(std::vector<cv::KeyPoint> &keypoints, cv::Mat &img, 
             const double contrastThreshold=0.04; 
             const double edgeThreshold=10; 
             const double sigma=1.6;
-            extractor = cv::SIFT::create ();//nfeatures, nOctaveLayers, contrastThreshold, edgeThreshold, sigma);
+            extractor = cv::SIFT::create (nfeatures, nOctaveLayers, contrastThreshold, edgeThreshold, sigma);
             break;
         }
         default: {
