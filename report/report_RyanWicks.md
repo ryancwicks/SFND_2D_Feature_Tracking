@@ -71,7 +71,7 @@ In terms of total calculation time, the following table summarizes the results:
 | FREAK    |  38.39     | 31.82  | 56.04| 97.78  | 29.00| 76.01 | 114.20|
 | AKAZE    |  x         | x      | x    | x      | x    | 88.59 | x     |
 | SIFT     |  26.21     | 20.16  | 90.54| 164.64 | 65.78| 79.24 | 148.91|
-|----------|------------|--------|------|--------|------|-------|-------|
+
 
 The three fastest combinations of (detector, descriptor) are:
 
@@ -87,4 +87,4 @@ However, the above performance seems to be associated with a low number of match
 
 ## Conclusion:
 
-Given only the information above, I would probably choose a FAST/ORB combination of detector/descriptor to maximize the time per keypoint. Furthermore, this combination is only slightly outside the top 3 absolute performers, while providing almost 10X more matched features to work with. More information on the positivity rates for this combination could change this choice. 
+Given only the information above, if I was choosing soley based on overall speed, I would choos a ORB/BRIEF combination. However, if computing power isn't overly constrained, I would probably choose a FAST/ORB combination of detector/descriptor to maximize the time per keypoint, which produces far more keypoints than ORB/BRIEF with only a marginal increase in processing time (this combination is only slightly outside the top 3 absolute performers, while providing almost 10X more matched features to work with). More information on the positivity rates for this combination could change this choice. 
